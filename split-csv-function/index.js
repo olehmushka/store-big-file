@@ -1,3 +1,6 @@
+const { Storage } = require('@google-cloud/storage');
+const csvSplitStream = require('csv-split-stream');
+
 /**
  * Generic background Cloud Function to be triggered by Cloud Storage.
  *
@@ -5,15 +8,29 @@
  * @param {function} callback The callback function.
  */
 exports.splitCsvFunction = (data, context, callback) => {
-  const file = data;
+  if (!data.name.includes('input')) {
+    return callback(null, null);
+  }
+  const storage = new Storage()
+  const timestamp = Date.now();
+  const outputFilenames = [];
 
-  console.log(`  Event: ${context.eventId}`);
-  console.log(`  Event Type: ${context.eventType}`);
-  console.log(`  Bucket: ${file.bucket}`);
-  console.log(`  File: ${file.name}`);
-  console.log(`  Metageneration: ${file.metageneration}`);
-  console.log(`  Created: ${file.timeCreated}`);
-  console.log(`  Updated: ${file.updated}`);
+  const readFileStream = storage.bucket(data.bucket).file(data.name).createReadStream();
+  csvSplitStream.split(readFileStream, { lineLimit: 100 },
+    (index) => {
+      const outputFilename = `output-${timestamp}-${index}.csv`;
+      outputFilenames.push(outputFilename);
 
-  callback(null, `Hello ${data.name || 'World'}!`);
+      return storage.bucket(data.bucket).file(outputFilename).createWriteStream();
+    }
+  )
+    .then(() => {
+      console.log({ filenames: outputFilenames });
+    })
+    .then(() => {
+      callback(null, 'Finished');
+    })
+    .catch((error) => {
+      callback(error, null);
+    });
 };
