@@ -1,0 +1,10 @@
+{
+  "name": "split-function",
+  "version": "0.0.0",
+  "description": "The function for spliting big CSV file into several small",
+  "main": "index.js",
+  "repository": "https://github.com/olehmushka/store-big-file/split-function",
+  "author": "Oleh Mushka <olegamysk@gmail.com>",
+  "license": "MIT",
+  "private": false
+}
