@@ -1,0 +1,10 @@
+{
+  "name": "store-function",
+  "version": "0.0.0",
+  "description": "The function storing data from CSV file into datastore",
+  "main": "index.js",
+  "repository": "https://github.com/olehmushka/store-big-file/store-function",
+  "author": "Oleh Mushka <olegamysk@gmail.com>",
+  "license": "MIT",
+  "private": false
+}

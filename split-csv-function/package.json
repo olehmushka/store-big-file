@@ -8,6 +8,7 @@
   "license": "MIT",
   "private": false,
   "dependencies": {
+    "@google-cloud/pubsub": "2.2.0",
     "@google-cloud/storage": "5.1.2",
     "csv-split-stream": "1.0.2"
   }
