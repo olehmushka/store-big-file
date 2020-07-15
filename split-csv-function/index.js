@@ -15,19 +15,19 @@ exports.splitCsvFunction = (file, context, callback) => {
   if (!file.name.includes('input')) {
     return callback(null, null);
   }
-  const storage = new Storage()
+  const storageClient = new Storage()
   const pubSubClient = new PubSub();
   const timestamp = Date.now();
   const fullTopicName = `projects/${PROJECT_ID}/topics/${SPLITTED_CSV_FILE_TOPIC_NAME}`;
   const outputFilenames = [];
 
-  const readFileStream = storage.bucket(file.bucket).file(file.name).createReadStream();
+  const readFileStream = storageClient.bucket(file.bucket).file(file.name).createReadStream();
   csvSplitStream.split(readFileStream, { lineLimit: 100 },
     (index) => {
       const outputFilename = `output-${timestamp}-${index}.csv`;
       outputFilenames.push(outputFilename);
 
-      return storage.bucket(file.bucket).file(outputFilename).createWriteStream();
+      return storageClient.bucket(file.bucket).file(outputFilename).createWriteStream();
     }
   )
     .then(async () => {

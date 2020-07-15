@@ -1,4 +1,10 @@
+const { Storage } = require('@google-cloud/storage');
+const { Datastore } = require('@google-cloud/datastore');
+const csvParser = require('csv-parser')
+
+const CSV_BUCKET_NAME = 'csv-storage-1';
 const SPLITTED_CSV_FILE_SUBSCRIPTION_NAME = 'splitted-csv-file-subscription';
+const DATASTORE_COLLECTION_NAME = 'user-is-okay-list';
 
 class CustomError extends Error {
   constructor({ message }) {
@@ -31,9 +37,17 @@ exports.storeDataFunction = (pubSubMessage, context, callback) => {
     }), { success: false });
   }
 
-  let payload = null;
+  /*
+  interface Payload {
+    data: {
+      csvFilename: string;
+    };
+  }
+  */
+  let csvFilename = '';
   try {
-    payload = JSON.parse(Buffer.from(pubSubMessage.data, 'base64').toString());
+    const payload = JSON.parse(Buffer.from(pubSubMessage.data, 'base64').toString());
+    csvFilename = payload.data.csvFilename || '';
   } catch {
     return callback(new BadPubSubPayload({
       message: 'Can not parse payload',
@@ -41,7 +55,45 @@ exports.storeDataFunction = (pubSubMessage, context, callback) => {
       messageId: pubSubMessage.messageId,
     }), { success: false });
   }
-  console.log({ payload });
 
-  callback(null, { success: true });
+  if (csvFilename === '') {
+    return callback(new BadPubSubPayload({
+      message: 'CSV filename is empty',
+      subscriptionName: SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
+      messageId: pubSubMessage.messageId,
+    }), { success: false });
+  }
+  
+  const storageClient = new Storage()
+  const datastoreClient = new Datastore();
+  const result = [];
+  storageClient.bucket(CSV_BUCKET_NAME).file(csvFilename).createReadStream()
+    .pipe(csvParser())
+    .on('error', (error) => callback(error))
+    .on('data', (data) => result.push(data))
+    .on('end', async () => {
+      try {
+        await storageClient.bucket(CSV_BUCKET_NAME).file(csvFilename).delete();
+        const key = datastoreClient.key(DATASTORE_COLLECTION_NAME);
+        const transaction = datastoreClient.transaction();
+        transaction.run(function(error) {
+          if (error) {
+            return callback(error);
+          }
+
+          result.forEach((item) => {
+            transaction.save({ key, data: item });
+          });
+
+          transaction.commit(function(error) {
+            if (!error) {
+              return callback(error);
+            }
+            callback(null, { success: true });
+          });
+        });
+      } catch (error) {
+        return callback(error);
+      }
+    });
 };
