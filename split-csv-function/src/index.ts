@@ -30,8 +30,10 @@ export const splitCsvFunction = async (
         topicName: `projects/${config.PROJECT_ID}/topics/${config.SPLITTED_CSV_FILE_TOPIC_NAME}`,
       }),
     );
-    const publishedMessageIDs = await handler.handle(file.name);
-    callback(null, { success: true, publishedMessageIDs });
+    const result = await handler.handle(file.name);
+    result
+      .mapLeft((error) => callback(error, { success: false }))
+      .mapRight((messageIDs) => callback(null, { success: true, messageIDs }));
   } catch (error) {
     callback(error, { success: false });
   }

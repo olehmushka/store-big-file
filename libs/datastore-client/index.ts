@@ -1,7 +1,8 @@
 import { Datastore } from '@google-cloud/datastore';
+import { Either, right, left } from '@sweet-monads/either';
 
 export interface IDatastoreClient {
-  saveBulk<T>(records: T[]): Promise<void>;
+  saveBulk<T>(records: T[]): Promise<Either<Error, void>>;
 }
 
 export interface IDatastoreClientConfig {
@@ -17,14 +18,14 @@ export class DatastoreClient implements IDatastoreClient {
     this.collectionName = datastoreConfig.collectionName;
   }
 
-  public saveBulk<T>(records: T[]): Promise<void> {
+  public saveBulk<T>(records: T[]): Promise<Either<Error, void>> {
     const key = this.instance.key(this.collectionName);
 
     return new Promise((resolve, reject) => {
       const transaction = this.instance.transaction();
       transaction.run((error: unknown | null) => {
         if (error) {
-          return reject(error);
+          return reject(left(error));
         }
 
         records.forEach((item) => {
@@ -33,9 +34,9 @@ export class DatastoreClient implements IDatastoreClient {
 
         transaction.commit((error: unknown | null) => {
           if (!error) {
-            return reject(error);
+            return reject(left(error));
           }
-          resolve();
+          resolve(right(undefined));
         });
       });
     });

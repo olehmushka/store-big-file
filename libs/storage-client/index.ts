@@ -1,10 +1,11 @@
 import { Storage } from '@google-cloud/storage';
+import { Either, right, left } from '@sweet-monads/either';
 import { Readable, Writable } from 'stream';
 
 export interface IStorageClient {
   createFileReadStream(filename: string): Readable;
   createFileWriteStream(filename: string): Writable;
-  deleteFile(filename: string): Promise<void>;
+  deleteFile(filename: string): Promise<Either<Error, void>>;
 }
 
 export interface IStorageClientConfig {
@@ -28,7 +29,13 @@ export class StorageClient implements IStorageClient {
     return this.instance.bucket(this.bucketName).file(filename).createWriteStream();
   }
 
-  public async deleteFile(filename: string): Promise<void> {
-    await this.instance.bucket(this.bucketName).file(filename).delete();
+  public async deleteFile(filename: string): Promise<Either<Error, void>> {
+    try {
+      await this.instance.bucket(this.bucketName).file(filename).delete();
+
+      return right(undefined);
+    } catch (error) {
+      return left(error);
+    }
   }
 }

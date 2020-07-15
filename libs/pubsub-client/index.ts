@@ -1,7 +1,8 @@
 import { PubSub } from '@google-cloud/pubsub';
+import { Either, right, left } from '@sweet-monads/either';
 
 export interface IPubSubClient {
-  publish(payload: string): Promise<string>;
+  publish(payload: string): Promise<Either<Error, string>>;
 }
 
 export interface IPubSubClientConfig {
@@ -17,7 +18,13 @@ export class PubSubClient implements IPubSubClient {
     this.topicName = pubSubConfig.topicName;
   }
 
-  public publish(payload: string): Promise<string> {
-    return this.instance.topic(this.topicName).publish(Buffer.from(payload));
+  public async publish(payload: string): Promise<Either<Error, string>> {
+    try {
+      const messageId = await this.instance.topic(this.topicName).publish(Buffer.from(payload));
+
+      return right(messageId);
+    } catch (error) {
+      return left(error);
+    }
   }
 }

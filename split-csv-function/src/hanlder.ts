@@ -1,12 +1,15 @@
+import { Either, merge } from '@sweet-monads/either';
 import { IStorageClient } from '../../libs/storage-client';
 import { IPubSubClient } from '../../libs/pubsub-client';
+
+import { CanNotPublishMessage } from '../../libs/errors';
 
 const csvSplitStream = require('csv-split-stream');
 
 export class SplitCsvFile {
   constructor(private storageClient: IStorageClient, private pubSubClient: IPubSubClient) {}
 
-  public async handle(filename: string): Promise<string[]> {
+  public async handle(filename: string): Promise<Either<Error, string[]>> {
     const timestamp = Date.now();
     const outputFilenames: string[] = [];
     const readFileStream = this.storageClient.createFileReadStream(filename);
@@ -20,6 +23,8 @@ export class SplitCsvFile {
       outputFilenames.map((filename) => this.pubSubClient.publish(JSON.stringify({ data: { csvFilename: filename } }))),
     );
 
-    return publishedMessageIDs;
+    return merge(publishedMessageIDs)
+      .mapLeft((error) => new CanNotPublishMessage(error))
+      .mapRight((value) => value);
   }
 }

@@ -1,5 +1,6 @@
 import { Readable } from 'stream';
 import csvParser from 'csv-parser';
+import { Either, left, right } from '@sweet-monads/either';
 import { IStorageClient } from '../../libs/storage-client';
 import { IDatastoreClient } from '../../libs/datastore-client';
 import { ICSVPubSubPayload, IUser } from '../../libs/contracts';
@@ -8,21 +9,26 @@ import { BadPubSubPayload } from '../../libs/errors';
 export class StoreDataHandler {
   constructor(private storageClient: IStorageClient, private datastoreClient: IDatastoreClient) {}
 
-  public async handle(input?: string | null): Promise<void> {
+  public async handle(input?: string | null): Promise<Either<BadPubSubPayload | Error, void>> {
     if (!input) {
-      throw new BadPubSubPayload({ message: 'Data is empty' });
+      return left(new BadPubSubPayload({ message: 'Data is empty' }));
     }
 
     const csvFilename = this.getCsvFilename(input);
     if (csvFilename === '') {
-      throw new BadPubSubPayload({ message: 'CSV filename is empty' });
+      return left(new BadPubSubPayload({ message: 'CSV filename is empty' }));
     }
 
     const csvStream = this.storageClient.createFileReadStream(csvFilename);
     const parsedResult = await this.getDataFromCsvStream(csvStream);
+    if (parsedResult.isLeft()) {
+      return left(parsedResult.value);
+    }
 
     await this.storageClient.deleteFile(csvFilename);
-    await this.datastoreClient.saveBulk<IUser>(parsedResult);
+    await this.datastoreClient.saveBulk<IUser>(parsedResult.value);
+
+    return right(undefined);
   }
 
   private parsePubSubMessage(input: string): ICSVPubSubPayload {
@@ -41,15 +47,15 @@ export class StoreDataHandler {
     return csvFilename;
   }
 
-  private getDataFromCsvStream(stream: Readable): Promise<IUser[]> {
+  private getDataFromCsvStream(stream: Readable): Promise<Either<Error, IUser[]>> {
     return new Promise((resolve, reject) => {
       const result: IUser[] = [];
       stream
         .pipe(csvParser())
-        .on('error', reject)
+        .on('error', (error) => reject(left(error)))
         .on('data', (data: IUser) => result.push(data))
         .on('end', () => {
-          resolve(result);
+          resolve(right(result));
         });
     });
   }

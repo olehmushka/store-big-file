@@ -25,7 +25,10 @@ export const storeDataFunction = async (
   );
 
   try {
-    await handler.handle(pubSubMessage.data);
+    const result = await handler.handle(pubSubMessage.data);
+    if (result.isLeft()) {
+      callback(result.value, { success: false });
+    }
     callback(null, { success: true });
   } catch (error) {
     callback(
