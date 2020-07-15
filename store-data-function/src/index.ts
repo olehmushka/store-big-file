@@ -4,19 +4,11 @@ import { Context } from '@google-cloud/functions-framework/build/src/functions';
 import csvParser from 'csv-parser';
 import { Readable } from 'stream';
 
-import { BadPubSubPayload } from './errors';
+import { StorageClient } from '../../libs/storage-client';
+import { DatastoreClient } from '../../libs/datastore-client';
+import { ICSVPubSubPayload, IUser } from '../../libs/contracts';
+import { BadPubSubPayload } from '../../libs/errors';
 import config from './config';
-
-interface ICSVPubSubPayload {
-  data: {
-    csvFilename: string;
-  };
-}
-
-interface IUser {
-  email: string;
-  isOkay: boolean;
-}
 
 type BaseFunctionInputData = {};
 
@@ -82,37 +74,15 @@ export const storeDataFunction = async (
     );
   }
 
-  const storageClient = new Storage();
-  const datastoreClient = new Datastore();
-
-  let parsedResult: IUser[] = [];
+  const storageClient = new StorageClient(new Storage(), { bucketName: config.CSV_BUCKET_NAME });
+  const datastoreClient = new DatastoreClient(new Datastore(), { collectionName: config.DATASTORE_COLLECTION_NAME });
 
   try {
-    parsedResult = await parseCsvStream(
-      storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).createReadStream(),
-    );
+    const parsedResult = await parseCsvStream(storageClient.createFileReadStream(csvFilename));
 
-    await storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).delete();
+    await storageClient.deleteFile(csvFilename);
+    await datastoreClient.saveBulk<IUser>(parsedResult);
   } catch (error) {
     return callback(error, { success: false });
   }
-
-  const key = datastoreClient.key(config.DATASTORE_COLLECTION_NAME);
-  const transaction = datastoreClient.transaction();
-  transaction.run((error) => {
-    if (error) {
-      return callback(error, { success: false });
-    }
-
-    parsedResult.forEach((item) => {
-      transaction.save({ key, data: item });
-    });
-
-    transaction.commit((error) => {
-      if (!error) {
-        return callback(error, { success: false });
-      }
-      callback(null, { success: true });
-    });
-  });
 };
