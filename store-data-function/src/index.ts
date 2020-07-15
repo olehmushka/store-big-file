@@ -2,6 +2,7 @@ import { Storage } from '@google-cloud/storage';
 import { Datastore } from '@google-cloud/datastore';
 import { Context } from '@google-cloud/functions-framework/build/src/functions';
 import csvParser from 'csv-parser';
+import { Readable } from 'stream';
 
 import { BadPubSubPayload } from './errors';
 import config from './config';
@@ -24,65 +25,94 @@ interface IStoreDataInput extends BaseFunctionInputData {
   messageId: string;
 }
 
-export const storeDataFunction = (pubSubMessage: IStoreDataInput, context: Context, callback: Function): void => {
+const parsePubSubMessage = (input: IStoreDataInput): ICSVPubSubPayload =>
+  JSON.parse(Buffer.from(input?.data ?? '', 'base64').toString());
+
+const parseCsvStream = (stream: Readable): Promise<IUser[]> =>
+  new Promise((resolve, reject) => {
+    const result: IUser[] = [];
+    stream
+      .pipe(csvParser())
+      .on('error', reject)
+      .on('data', (data: IUser) => result.push(data))
+      .on('end', () => {
+        resolve(result);
+      });
+  });
+
+export const storeDataFunction = async (
+  pubSubMessage: IStoreDataInput,
+  context: Context,
+  callback: Function,
+): Promise<void> => {
   if (pubSubMessage.data === null || pubSubMessage.data === undefined) {
-    return callback(new BadPubSubPayload({
-      message: 'Data is empty',
-      subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
-      messageId: pubSubMessage.messageId,
-    }), { success: false });
+    return callback(
+      new BadPubSubPayload({
+        message: 'Data is empty',
+        subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
+        messageId: pubSubMessage.messageId,
+      }),
+      { success: false },
+    );
   }
 
   let csvFilename = '';
   try {
-    const payload = JSON.parse(Buffer.from(pubSubMessage.data, 'base64').toString()) as ICSVPubSubPayload;
+    const payload = parsePubSubMessage(pubSubMessage);
     csvFilename = payload?.data?.csvFilename ?? '';
   } catch {
-    return callback(new BadPubSubPayload({
-      message: 'Can not parse payload',
-      subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
-      messageId: pubSubMessage.messageId,
-    }), { success: false });
+    return callback(
+      new BadPubSubPayload({
+        message: 'Can not parse payload',
+        subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
+        messageId: pubSubMessage.messageId,
+      }),
+      { success: false },
+    );
   }
 
   if (csvFilename === '') {
-    return callback(new BadPubSubPayload({
-      message: 'CSV filename is empty',
-      subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
-      messageId: pubSubMessage.messageId,
-    }), { success: false });
+    return callback(
+      new BadPubSubPayload({
+        message: 'CSV filename is empty',
+        subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
+        messageId: pubSubMessage.messageId,
+      }),
+      { success: false },
+    );
   }
-  
-  const storageClient = new Storage()
+
+  const storageClient = new Storage();
   const datastoreClient = new Datastore();
-  const result: IUser[] = [];
-  storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).createReadStream()
-    .pipe(csvParser())
-    .on('error', (error) => callback(error))
-    .on('data', (data: IUser) => result.push(data))
-    .on('end', async () => {
-      try {
-        await storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).delete();
-        const key = datastoreClient.key(config.DATASTORE_COLLECTION_NAME);
-        const transaction = datastoreClient.transaction();
-        transaction.run(function(error) {
-          if (error) {
-            return callback(error);
-          }
 
-          result.forEach((item) => {
-            transaction.save({ key, data: item });
-          });
+  let parsedResult: IUser[] = [];
 
-          transaction.commit(function(error) {
-            if (!error) {
-              return callback(error);
-            }
-            callback(null, { success: true });
-          });
-        });
-      } catch (error) {
-        return callback(error);
-      }
+  try {
+    parsedResult = await parseCsvStream(
+      storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).createReadStream(),
+    );
+
+    await storageClient.bucket(config.CSV_BUCKET_NAME).file(csvFilename).delete();
+  } catch (error) {
+    return callback(error, { success: false });
+  }
+
+  const key = datastoreClient.key(config.DATASTORE_COLLECTION_NAME);
+  const transaction = datastoreClient.transaction();
+  transaction.run((error) => {
+    if (error) {
+      return callback(error, { success: false });
+    }
+
+    parsedResult.forEach((item) => {
+      transaction.save({ key, data: item });
     });
+
+    transaction.commit((error) => {
+      if (!error) {
+        return callback(error, { success: false });
+      }
+      callback(null, { success: true });
+    });
+  });
 };
