@@ -7,6 +7,9 @@
   "author": "Oleh Mushka <olegamysk@gmail.com>",
   "license": "MIT",
   "private": false,
+  "engines": {
+    "node": ">=10"
+  },
   "scripts": {
     "build": "tsc",
     "format": "prettier --write \"src/**/*.ts\""
