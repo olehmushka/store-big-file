@@ -1,29 +1,33 @@
-const { Storage } = require('@google-cloud/storage');
-const { PubSub } = require('@google-cloud/pubsub');
+
+import { Storage } from '@google-cloud/storage';
+import { PubSub } from '@google-cloud/pubsub';
+import { Context } from '@google-cloud/functions-framework/build/src/functions';
+
+import config from './config';
+
 const csvSplitStream = require('csv-split-stream');
 
-const PROJECT_ID = 'store-big-file';
-const SPLITTED_CSV_FILE_TOPIC_NAME = 'splitted-csv-file-topic';
 
-/**
- * Generic background Cloud Function to be triggered by Cloud Storage.
- *
- * @param {object} event The Cloud Functions event.
- * @param {function} callback The callback function.
- */
-exports.splitCsvFunction = (file, context, callback) => {
+type BaseFunctionInputData = {};
+
+interface ISplitCSVDataInput extends BaseFunctionInputData {
+  bucket: string;
+  name: string;
+}
+
+export const splitCsvFunction = (file: ISplitCSVDataInput, context: Context, callback: Function): void => {
   if (!file.name.includes('input')) {
     return callback(null, null);
   }
   const storageClient = new Storage()
   const pubSubClient = new PubSub();
   const timestamp = Date.now();
-  const fullTopicName = `projects/${PROJECT_ID}/topics/${SPLITTED_CSV_FILE_TOPIC_NAME}`;
-  const outputFilenames = [];
+  const fullTopicName = `projects/${config.PROJECT_ID}/topics/${config.SPLITTED_CSV_FILE_TOPIC_NAME}`;
+  const outputFilenames: string[] = [];
 
   const readFileStream = storageClient.bucket(file.bucket).file(file.name).createReadStream();
   csvSplitStream.split(readFileStream, { lineLimit: 100 },
-    (index) => {
+    (index: number) => {
       const outputFilename = `output-${timestamp}-${index}.csv`;
       outputFilenames.push(outputFilename);
 
@@ -41,10 +45,10 @@ exports.splitCsvFunction = (file, context, callback) => {
         }),
       );
     })
-    .then((publishedMessageIDs) => {
+    .then((publishedMessageIDs: string[]) => {
       callback(null, { success: true, publishedMessageIDs });
     })
-    .catch((error) => {
+    .catch((error: unknown) => {
       callback(error, { success: false });
     });
 };

@@ -9,6 +9,8 @@ if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
   gcloud auth application-default login
 fi
 
+yarn build
+
 gcloud config set functions/region $REGION
 gcloud config set project $PROJECT_ID
 
