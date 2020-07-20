@@ -1,13 +1,18 @@
 import { Readable } from 'stream';
 import csvParser from 'csv-parser';
 import { Either, left, right } from '@sweet-monads/either';
+import { ILogger } from '../../libs/logger';
 import { IStorageClient } from '../../libs/storage-client';
 import { IDatastoreClient } from '../../libs/datastore-client';
 import { ICSVPubSubPayload, IUser } from '../../libs/contracts';
 import { BadPubSubPayload } from '../../libs/errors';
 
 export class StoreDataHandler {
-  constructor(private storageClient: IStorageClient, private datastoreClient: IDatastoreClient) {}
+  constructor(
+    private logger: ILogger,
+    private storageClient: IStorageClient,
+    private datastoreClient: IDatastoreClient,
+  ) {}
 
   public async handle(input?: string | null): Promise<Either<BadPubSubPayload | Error, void>> {
     if (!input) {

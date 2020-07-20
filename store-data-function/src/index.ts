@@ -1,6 +1,7 @@
 import { Storage } from '@google-cloud/storage';
 import { Datastore } from '@google-cloud/datastore';
 import { Context } from '@google-cloud/functions-framework/build/src/functions';
+import pino from 'pino';
 
 import { StorageClient } from '../../libs/storage-client';
 import { DatastoreClient } from '../../libs/datastore-client';
@@ -20,6 +21,7 @@ export const storeDataFunction = async (
   callback: Function,
 ): Promise<void> => {
   const handler = new StoreDataHandler(
+    pino({ level: 'info' }),
     new StorageClient(new Storage(), { bucketName: config.CSV_BUCKET_NAME }),
     new DatastoreClient(new Datastore(), { collectionName: config.DATASTORE_COLLECTION_NAME }),
   );
@@ -27,7 +29,7 @@ export const storeDataFunction = async (
   try {
     const result = await handler.handle(pubSubMessage.data);
     if (result.isLeft()) {
-      callback(result.value, { success: false });
+      return callback(result.value, { success: false });
     }
     callback(null, { success: true });
   } catch (error) {

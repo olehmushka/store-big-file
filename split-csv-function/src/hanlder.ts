@@ -1,4 +1,5 @@
 import { Either, merge } from '@sweet-monads/either';
+import { ILogger } from '../../libs/logger';
 import { IStorageClient } from '../../libs/storage-client';
 import { IPubSubClient } from '../../libs/pubsub-client';
 
@@ -7,7 +8,11 @@ import { CanNotPublishMessage } from '../../libs/errors';
 const csvSplitStream = require('csv-split-stream');
 
 export class SplitCsvFile {
-  constructor(private storageClient: IStorageClient, private pubSubClient: IPubSubClient) {}
+  constructor(
+    private logger: ILogger,
+    private storageClient: IStorageClient,
+    private pubSubClient: IPubSubClient,
+  ) {}
 
   public async handle(filename: string): Promise<Either<Error, string[]>> {
     const timestamp = Date.now();

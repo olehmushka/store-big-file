@@ -1,6 +1,7 @@
 import { PubSub } from '@google-cloud/pubsub';
 import { Storage } from '@google-cloud/storage';
 import { Context } from '@google-cloud/functions-framework/build/src/functions';
+import pino from 'pino';
 
 import { StorageClient } from '../../libs/storage-client';
 import { PubSubClient } from '../../libs/pubsub-client';
@@ -25,6 +26,7 @@ export const splitCsvFunction = async (
 
   try {
     const handler = new SplitCsvFile(
+      pino({ level: 'info' }),
       new StorageClient(new Storage(), { bucketName: file.bucket }),
       new PubSubClient(new PubSub(), {
         topicName: `projects/${config.PROJECT_ID}/topics/${config.SPLITTED_CSV_FILE_TOPIC_NAME}`,
