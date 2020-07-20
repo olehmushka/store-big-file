@@ -1,7 +1,6 @@
 APP_CREDENTIALS_FILE=~/.config/gcloud/application_default_credentials.json
 PROJECT_ID=store-big-file
 ENTRY_POINT=storeDataFunction
-TOPIC_NAME=splitted-csv-file-topic
 REGION=europe-west2
 
 if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
@@ -9,6 +8,7 @@ if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
   gcloud auth application-default login
 fi
 
+rm -rf dist
 yarn build
 
 gcloud config set functions/region $REGION
@@ -16,6 +16,7 @@ gcloud config set project $PROJECT_ID
 
 gcloud functions deploy $ENTRY_POINT \
 --runtime nodejs10 \
---trigger-topic $TOPIC_NAME \
+--trigger-resource $TRIGGER_BUCKET_NAME \
+--trigger-event google.storage.object.finalize \
 --region=$REGION \
 --project $PROJECT_ID

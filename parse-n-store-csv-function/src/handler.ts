@@ -24,10 +24,7 @@ export class ParseNStoreCsvHandler {
         }
         this.logger.info(`Parsed Result: length = ${parsedResult.value.length}`);
 
-        return await this.datastoreClient.upsertLargeBulk<IUser>(parsedResult.value)
-          .then(result => result
-            .mapLeft(error => error)
-            .mapRight(((): void => undefined)));
+        return await this.datastoreClient.upsertLargeBulk<IUser>(parsedResult.value);
       });
   }
 

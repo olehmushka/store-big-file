@@ -4,7 +4,7 @@ import { Either, left, right } from '@sweet-monads/either';
 import { ILogger } from '../../libs/logger';
 import { IStorageClient } from '../../libs/storage-client';
 import { IDatastoreClient } from '../../libs/datastore-client';
-import { ICSVPubSubPayload, IUser } from '../../libs/contracts';
+import { IUser } from '../../libs/contracts';
 import { BadPubSubPayload } from '../../libs/errors';
 
 export class StoreDataHandler {
@@ -14,51 +14,35 @@ export class StoreDataHandler {
     private datastoreClient: IDatastoreClient,
   ) {}
 
-  public async handle(input?: string | null): Promise<Either<BadPubSubPayload | Error, void>> {
-    if (!input) {
-      return left(new BadPubSubPayload({ message: 'Data is empty' }));
-    }
-
-    const csvFilename = this.getCsvFilename(input);
+  public async handle(csvFilename: string): Promise<Either<BadPubSubPayload | Error, void>> {
     if (csvFilename === '') {
       return left(new BadPubSubPayload({ message: 'CSV filename is empty' }));
     }
+    const splitCsvFilename = csvFilename.split('-');
+    if (splitCsvFilename.length !== 3) {
+      return left(new BadPubSubPayload({ message: 'CSV filename is incorrect' }));
+    }
+    const loadData = new Date(new Date(Number(splitCsvFilename[1]))).toISOString();
 
     const csvStream = this.storageClient.createFileReadStream(csvFilename);
-    const parsedResult = await this.getDataFromCsvStream(csvStream);
+    const parsedResult = await this.getDataFromCsvStream(csvStream, loadData);
     if (parsedResult.isLeft()) {
       return left(parsedResult.value);
     }
 
     await this.storageClient.deleteFile(csvFilename);
-    await this.datastoreClient.saveBulk<IUser>(parsedResult.value);
+    await this.datastoreClient.upsertBulk<IUser>(parsedResult.value);
 
     return right(undefined);
   }
 
-  private parsePubSubMessage(input: string): ICSVPubSubPayload {
-    return JSON.parse(Buffer.from(input, 'base64').toString());
-  }
-
-  private getCsvFilename(input: string): string {
-    let csvFilename = '';
-    try {
-      const payload = this.parsePubSubMessage(input);
-      csvFilename = payload?.data?.csvFilename ?? '';
-    } catch {
-      throw new BadPubSubPayload({ message: 'Can not parse payload' });
-    }
-
-    return csvFilename;
-  }
-
-  private getDataFromCsvStream(stream: Readable): Promise<Either<Error, IUser[]>> {
+  private getDataFromCsvStream(stream: Readable, loadDate: string): Promise<Either<Error, IUser[]>> {
     return new Promise((resolve, reject) => {
       const result: IUser[] = [];
       stream
         .pipe(csvParser())
         .on('error', (error) => reject(left(error)))
-        .on('data', (data: IUser) => result.push(data))
+        .on('data', (data: { email: string; eligible: boolean }) => result.push({ ...data, loadDate }))
         .on('end', () => {
           resolve(right(result));
         });

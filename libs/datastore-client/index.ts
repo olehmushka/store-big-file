@@ -2,7 +2,9 @@ import { Datastore } from '@google-cloud/datastore';
 import { Either, right, left } from '@sweet-monads/either';
 
 export interface IDatastoreClient {
-  saveBulk<T>(records: T[]): Promise<Either<Error, void>>;
+  saveBulk<T>(records: T[]): Promise<Either<Error | unknown, void>>;
+  updateBulk<T>(records: T[]): Promise<Either<Error | unknown, void>>;
+  upsertBulk<T>(records: T[]): Promise<Either<Error | unknown, void>>;
 }
 
 export interface IDatastoreClientConfig {
@@ -18,14 +20,14 @@ export class DatastoreClient implements IDatastoreClient {
     this.collectionName = datastoreConfig.collectionName;
   }
 
-  public saveBulk<T>(records: T[]): Promise<Either<Error, void>> {
+  public saveBulk<T>(records: T[]): Promise<Either<Error | unknown, void>> {
     const key = this.instance.key(this.collectionName);
 
-    return new Promise((resolve, reject) => {
+    return new Promise((resolve) => {
       const transaction = this.instance.transaction();
       transaction.run((error: unknown | null) => {
         if (error) {
-          return reject(left(error));
+          return resolve(left(error));
         }
 
         records.forEach((item) => {
@@ -34,7 +36,55 @@ export class DatastoreClient implements IDatastoreClient {
 
         transaction.commit((error: unknown | null) => {
           if (!error) {
-            return reject(left(error));
+            return resolve(left(error));
+          }
+          resolve(right(undefined));
+        });
+      });
+    });
+  }
+
+  public updateBulk<T>(records: T[]): Promise<Either<Error | unknown, void>> {
+    const key = this.instance.key(this.collectionName);
+
+    return new Promise((resolve) => {
+      const transaction = this.instance.transaction();
+      transaction.run((error: unknown | null) => {
+        if (error) {
+          return resolve(left(error));
+        }
+
+        records.forEach((item) => {
+          transaction.update({ key, data: item });
+        });
+
+        transaction.commit((error: unknown | null) => {
+          if (!error) {
+            return resolve(left(error));
+          }
+          resolve(right(undefined));
+        });
+      });
+    });
+  }
+
+  public upsertBulk<T>(records: T[]): Promise<Either<Error | unknown, void>> {
+    const key = this.instance.key(this.collectionName);
+
+    return new Promise((resolve) => {
+      const transaction = this.instance.transaction();
+      transaction.run((error: unknown | null) => {
+        if (error) {
+          return resolve(left(error));
+        }
+
+        records.forEach((item) => {
+          transaction.upsert({ key, data: item });
+        });
+
+        transaction.commit((error: unknown | null) => {
+          if (!error) {
+            return resolve(left(error));
           }
           resolve(right(undefined));
         });
@@ -42,3 +92,8 @@ export class DatastoreClient implements IDatastoreClient {
     });
   }
 }
+
+export const getDatastoreClient = (
+  instance: Datastore,
+  datastoreConfig: IDatastoreClientConfig,
+): IDatastoreClient => new DatastoreClient(instance, datastoreConfig);

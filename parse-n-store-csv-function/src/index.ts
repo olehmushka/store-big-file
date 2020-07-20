@@ -30,7 +30,7 @@ export const parseNStoreCsvFunction = async (
 
     return callback(null, null);
   }
-  const startDate = new Date()
+  const startDate = new Date();
 
   logger.info('Started Function');
 

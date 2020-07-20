@@ -11,35 +11,40 @@ import config from './config';
 type BaseFunctionInputData = {};
 
 interface IStoreDataInput extends BaseFunctionInputData {
-  data?: string | null;
-  messageId: string;
+  bucket: string;
+  name: string;
 }
 
+const logger = pino({ level: 'info' });
+
 export const storeDataFunction = async (
-  pubSubMessage: IStoreDataInput,
+  file: IStoreDataInput,
   context: Context,
   callback: Function,
 ): Promise<void> => {
+  if (!file.name.includes('input')) {
+    return callback(null, null);
+  }
+  const startDate = new Date()
+
   const handler = new StoreDataHandler(
-    pino({ level: 'info' }),
+    logger,
     new StorageClient(new Storage(), { bucketName: config.CSV_BUCKET_NAME }),
     new DatastoreClient(new Datastore(), { collectionName: config.DATASTORE_COLLECTION_NAME }),
   );
 
   try {
-    const result = await handler.handle(pubSubMessage.data);
+    const result = await handler.handle(file.name);
     if (result.isLeft()) {
+      logger.error('Handler Error', result.value);
+
       return callback(result.value, { success: false });
     }
+    const endDate   = new Date();
+    logger.info(`Finished Function in ${(endDate.getTime() - startDate.getTime()) / 1000}`);
     callback(null, { success: true });
   } catch (error) {
-    callback(
-      {
-        ...error,
-        subscriptionName: config.SPLITTED_CSV_FILE_SUBSCRIPTION_NAME,
-        messageId: pubSubMessage.messageId,
-      },
-      { success: false },
-    );
+    logger.error('Handler Error', error);
+    callback(error, { success: false });
   }
 };

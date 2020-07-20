@@ -9,6 +9,7 @@ if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
   gcloud auth application-default login
 fi
 
+rm -rf dist
 yarn build
 
 gcloud config set functions/region $REGION
