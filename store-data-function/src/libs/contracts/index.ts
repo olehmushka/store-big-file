@@ -9,5 +9,6 @@ export type BlacklistState = 'pending' | 'rejected' | 'fulfilled';
 export interface IBlacklistStatisticItem {
   filename: string;
   state: BlacklistState;
-  loadDate: string;
+  loadDate?: string;
 }
+

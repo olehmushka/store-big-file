@@ -1,6 +1,6 @@
 APP_CREDENTIALS_FILE=~/.config/gcloud/application_default_credentials.json
 PROJECT_ID=store-big-file
-ENTRY_POINT=storeDataFunction
+ENTRY_POINT=deleteFileFunction
 TRIGGER_BUCKET_NAME=csv-storage-1
 REGION=europe-west2
 

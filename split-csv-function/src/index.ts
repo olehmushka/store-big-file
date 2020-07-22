@@ -1,9 +1,12 @@
+import { Firestore } from '@google-cloud/firestore';
 import { Storage } from '@google-cloud/storage';
 import { Context } from '@google-cloud/functions-framework/build/src/functions';
 import pino from 'pino';
 
+import { FirestoreClient } from './libs/firestore-client';
 import { StorageClient } from './libs/storage-client';
 import { SplitCsvFile } from './hanlder';
+import config from './config';
 
 type BaseFunctionInputData = {};
 
@@ -13,6 +16,7 @@ interface ISplitCSVDataInput extends BaseFunctionInputData {
 }
 
 const logger = pino({ level: 'info' });
+const firestore = new Firestore();
 const storage = new Storage();
 
 export const splitCsvFunction = async (
@@ -27,7 +31,11 @@ export const splitCsvFunction = async (
 
   logger.info('Started Function', { filename: file.name, bucketName: file.bucket });
 
-  new SplitCsvFile(logger, new StorageClient(storage, { bucketName: file.bucket }))
+  new SplitCsvFile(
+    logger,
+    new StorageClient(storage, { bucketName: file.bucket }),
+    new FirestoreClient(firestore, { collectionName: config.STATISTIC_DATASTORE_COLLECTION_NAME }),
+  )
     .handle(file.name)
     .then((result) => {
       const endDate   = new Date();
@@ -42,8 +50,8 @@ export const splitCsvFunction = async (
           logger.error(`Function is failed in ${duration}`, details, error);
           callback(error, { success: false });
         })
-        .mapRight(() => {
-          logger.error(`Function is succeed in ${duration}`, details);
+        .mapRight((count) => {
+          logger.error(`Function is succeed in ${duration} for ${count} files`, details);
           callback(null, { success: true });
         });
     })
