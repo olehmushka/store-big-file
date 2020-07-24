@@ -31,6 +31,8 @@ export const storeDataFunction = async (file: IStoreDataInput, context: Context,
   }
   const startDate = new Date();
 
+  logger.info('Started Function', { filename: file.name, bucketName: file.bucket });
+
   handler
     .handle(file.name)
     .then((result) => {

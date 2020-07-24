@@ -12,3 +12,7 @@ export interface IBlacklistStatisticItem {
   loadDate?: string;
 }
 
+export interface ICsvUploadStreamResult {
+  recordCount: number;
+}
+

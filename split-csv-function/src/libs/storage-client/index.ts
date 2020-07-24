@@ -1,6 +1,7 @@
 import { Storage } from '@google-cloud/storage';
 import { Either, right, left } from '@sweet-monads/either';
 import { Readable, Writable } from 'stream';
+import config from '../../config';
 
 export interface IStorageClient {
   createFileReadStream(filename: string): Readable;
@@ -22,11 +23,16 @@ export class StorageClient implements IStorageClient {
   }
 
   public createFileReadStream(filename: string): Readable {
-    return this.instance.bucket(this.bucketName).file(filename).createReadStream();
+    return this.instance.bucket(this.bucketName).file(filename).createReadStream({
+      userProject: config.PROJECT_ID,
+    });
   }
 
   public createFileWriteStream(filename: string): Writable {
-    return this.instance.bucket(this.bucketName).file(filename).createWriteStream();
+    return this.instance.bucket(this.bucketName).file(filename).createWriteStream({
+      contentType: 'text/csv',
+      userProject: config.PROJECT_ID,
+    });
   }
 
   public async deleteFile(filename: string): Promise<Either<Error, void>> {

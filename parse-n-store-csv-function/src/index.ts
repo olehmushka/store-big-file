@@ -1,10 +1,10 @@
 import { Storage } from '@google-cloud/storage';
-import { Datastore } from '@google-cloud/datastore';
+import { Firestore } from '@google-cloud/firestore';
 import { Context } from '@google-cloud/functions-framework/build/src/functions';
 import pino from 'pino';
 
 import { getStorageClient } from './libs/storage-client';
-import { getDatastoreClient } from './libs/datastore-client';
+import { FirestoreClient } from './libs/firestore-client';
 import { ParseNStoreCsvHandler } from './handler';
 import config from './config';
 
@@ -18,7 +18,7 @@ interface IParseNStoreCsvDataInput extends BaseFunctionInputData {
 
 const logger = pino({ level: 'info' });
 const storage = new Storage();
-const datastore = new Datastore();
+const firestore = new Firestore();
 
 export const parseNStoreCsvFunction = async (
   file: IParseNStoreCsvDataInput,
@@ -37,7 +37,7 @@ export const parseNStoreCsvFunction = async (
   new ParseNStoreCsvHandler(
     logger,
     getStorageClient(storage, { bucketName: file.bucket }),
-    getDatastoreClient(datastore, { collectionName: config.DATASTORE_COLLECTION_NAME }),
+    new FirestoreClient(firestore, { collectionName: config.DATASTORE_COLLECTION_NAME }),
   )
     .handle(file.name)
     .then((result) => {

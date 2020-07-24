@@ -1,5 +1,5 @@
 {
-  "name": "split-function",
+  "name": "split-csv-function",
   "version": "0.0.0",
   "description": "The function for spliting big CSV file into several small",
   "main": "dist/index.js",

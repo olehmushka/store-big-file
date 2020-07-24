@@ -1,0 +1,18 @@
+{
+  "name": "delete-items-from-collection",
+  "version": "0.0.0",
+  "description": "delete items from collection",
+  "main": "index.js",
+  "author": "Oleh Mushka <olegamysk@gmail.com>",
+  "license": "MIT",
+  "private": false,
+  "engines": {
+    "node": ">=10"
+  },
+  "scripts": {
+    "run:drop": "node index.js"
+  },
+  "dependencies": {
+    "@google-cloud/firestore": "^4.1.1"
+  }
+}

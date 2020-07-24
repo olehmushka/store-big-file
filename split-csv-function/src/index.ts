@@ -28,22 +28,26 @@ export const splitCsvFunction = async (
     return callback(null, null);
   }
   const startDate = new Date();
+  const inputBucketName = file.bucket;
+  const outputBucketName = config.OUTPUT_CSV_BACKET;
+  const details = {
+    filename: file.name,
+    inputBucketName: inputBucketName,
+    outputBucketName: outputBucketName,
+  };
 
-  logger.info('Started Function', { filename: file.name, bucketName: file.bucket });
+  logger.info('Started Function', { filename: file.name, bucketName: inputBucketName });
 
   new SplitCsvFile(
     logger,
-    new StorageClient(storage, { bucketName: file.bucket }),
+    new StorageClient(storage, { bucketName: inputBucketName }),
+    new StorageClient(storage, { bucketName: outputBucketName }),
     new FirestoreClient(firestore, { collectionName: config.STATISTIC_DATASTORE_COLLECTION_NAME }),
   )
     .handle(file.name)
     .then((result) => {
       const endDate   = new Date();
       const duration = (endDate.getTime() - startDate.getTime()) / 1000;
-      const details = {
-        filename: file.name,
-        bucketName: file.bucket,
-      };
 
       return result
         .mapLeft((error) => {
@@ -51,9 +55,12 @@ export const splitCsvFunction = async (
           callback(error, { success: false });
         })
         .mapRight((count) => {
-          logger.error(`Function is succeed in ${duration} for ${count} files`, details);
+          logger.info(`Function is succeed in ${duration} for ${count} files`, details);
           callback(null, { success: true });
         });
     })
-    .catch(error => callback(error, { success: false }));
+    .catch((error) => {
+      logger.error('Function Error:', details, error);
+      callback(error, { success: false });
+    });
 };

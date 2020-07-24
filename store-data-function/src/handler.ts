@@ -4,7 +4,9 @@ import { Either, left, right } from '@sweet-monads/either';
 import { ILogger } from './libs/logger';
 import { IStorageClient } from './libs/storage-client';
 import { IFirestoreClient } from './libs/firestore-client';
-import { IUser, IBlacklistStatisticItem } from './libs/contracts';
+import { IBlacklistStatisticItem, ICsvUploadStreamResult } from './libs/contracts';
+import { UploadStream } from './libs/upload-stream';
+import config from './config';
 
 export class StoreDataHandler {
   constructor(
@@ -32,33 +34,44 @@ export class StoreDataHandler {
     const loadDate = new Date(Number(splitCsvFilename[1])).toISOString();
 
     const csvStream = this.storageClient.createFileReadStream(csvFilename);
-    const parsedResult = await this.getDataFromCsvStream(csvStream, loadDate);
-    if (parsedResult.isLeft()) {
+    const result = await this.uploadDataFromCsvStream(csvStream, loadDate);
+    if (result.isLeft()) {
       return this.sendRejectedStatistics({ filename: csvFilename, loadDate })
-        .then((result) => {
-          if (result.isLeft()) {
-            return result;
+        .then((statisticExecResult) => {
+          if (statisticExecResult.isLeft()) {
+            return statisticExecResult;
           }
 
-          return left(parsedResult.value as Error);
+          return left(result.value as Error);
         });
     }
 
-    await this.blacklistFirestoreClient.setLargeBulk<IUser>(parsedResult.value, 'email');
+    // await this.blacklistFirestoreClient.setLargeBulk<IUser>(parsedResult.value, 'email');
+    this.logger.info({ countStored: result.value });
     await this.storageClient.deleteFile(csvFilename);
+    this.logger.info(`Deleted ${csvFilename} file`);
 
     return this.sendFulfilledStatistics({ filename: csvFilename, loadDate });
   }
 
-  private getDataFromCsvStream(stream: Readable, loadDate: string): Promise<Either<Error, IUser[]>> {
+  private uploadDataFromCsvStream(stream: Readable, loadDate: string): Promise<Either<Error, ICsvUploadStreamResult>> {
     return new Promise((resolve, reject) => {
-      const result: IUser[] = [];
+      let recordCount = 0;
+
       stream
+        .on('error', (error) => reject(left(error)))
         .pipe(csvParser())
         .on('error', (error) => reject(left(error)))
-        .on('data', (data: { email: string; eligible: boolean }) => result.push({ ...data, loadDate }))
+        .pipe(new UploadStream(this.blacklistFirestoreClient, {
+          batchSize: config.BATCH_SIZE,
+          parallelCommitSize: config.PARALLEL_BATCHES_NUMBER,
+          loadDate,
+        }))
+        .on('data', () => {
+          recordCount += 1;
+        })
         .on('end', () => {
-          resolve(right(result));
+          resolve(right({ recordCount }))
         });
     });
   }

@@ -1,7 +1,7 @@
 APP_CREDENTIALS_FILE=~/.config/gcloud/application_default_credentials.json
-PROJECT_ID=store-big-file
+PROJECT_ID=store-csv-file
 ENTRY_POINT=splitCsvFunction
-TRIGGER_BUCKET_NAME=csv-storage-1
+TRIGGER_BUCKET_NAME=input-csv-storage-europe-west2
 REGION=europe-west2
 
 if [ ! -f "$APP_CREDENTIALS_FILE" ]; then

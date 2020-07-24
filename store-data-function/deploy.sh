@@ -1,8 +1,11 @@
 APP_CREDENTIALS_FILE=~/.config/gcloud/application_default_credentials.json
-PROJECT_ID=store-big-file
+PROJECT_ID=store-csv-file
 ENTRY_POINT=storeDataFunction
-TRIGGER_BUCKET_NAME=csv-storage-1
+TIMEOUT=540
+FUNCTION_MEMORY=2048MB
+TRIGGER_BUCKET_NAME=output-csv-storage-europe-west2
 REGION=europe-west2
+
 
 if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
   echo -e "Application default credentials ($APP_CREDENTIALS_FILE) don't exist, please finish the flow.\n"
@@ -16,7 +19,9 @@ gcloud config set functions/region $REGION
 gcloud config set project $PROJECT_ID
 
 gcloud functions deploy $ENTRY_POINT \
---runtime nodejs10 \
+--runtime nodejs12 \
+--memory=$FUNCTION_MEMORY \
+--timeout=$TIMEOUT \
 --trigger-resource $TRIGGER_BUCKET_NAME \
 --trigger-event google.storage.object.finalize \
 --region=$REGION \

@@ -3,3 +3,7 @@ export interface IUser {
   eligible: boolean;
   loadDate: string;
 }
+
+export interface ICsvUploadStreamResult {
+  recordCount: number;
+}
