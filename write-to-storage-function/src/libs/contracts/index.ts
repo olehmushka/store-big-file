@@ -10,4 +10,7 @@ export interface IBlacklistStatisticItem {
   filename: string;
   state: BlacklistState;
   loadDate: string;
+  totalCount?: number;
+  storedByItemCount: number;
+  srcFilename?: string;
 }

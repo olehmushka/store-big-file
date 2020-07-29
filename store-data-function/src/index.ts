@@ -5,15 +5,9 @@ import pino from 'pino';
 
 import { StorageClient } from './libs/storage-client';
 import { FirestoreClient } from './libs/firestore-client';
+import { isNil } from './libs/utils';
 import { StoreDataHandler } from './handler';
 import config from './config';
-
-type BaseFunctionInputData = {};
-
-interface IStoreDataInput extends BaseFunctionInputData {
-  bucket: string;
-  name: string;
-}
 
 const logger = pino({ level: 'info' });
 const storage = new Storage();
@@ -23,18 +17,31 @@ const firestoreClient = new FirestoreClient(firestore, { collectionName: config.
 const statisticFirestoreClient = new FirestoreClient(firestore, {
   collectionName: config.STATISTIC_DATASTORE_COLLECTION_NAME,
 });
-const handler = new StoreDataHandler(logger, storageClient, firestoreClient, statisticFirestoreClient);
+const handler = new StoreDataHandler(
+  logger,
+  storageClient,
+  firestoreClient,
+  statisticFirestoreClient,
+);
 
-export const storeDataFunction = async (file: IStoreDataInput, context: Context, callback: Function): Promise<void> => {
-  if (!file.name.includes('output')) {
-    return callback(null, null);
-  }
+export const storeDataFunction = async (
+  message: { data: string },
+  context: Context,
+  callback: Function,
+): Promise<void> => {
   const startDate = new Date();
 
-  logger.info('Started Function', { filename: file.name, bucketName: file.bucket });
+  if (isNil(message.data)) {
+    return callback(null, null);
+  }
+
+  const payload = Buffer.from(message.data, 'base64').toString();
+  const { outputFilename } = JSON.parse(payload);
+
+  logger.info('Started Function', { filename: outputFilename, bucketName: config.SRC_CSV_BACKET });
 
   handler
-    .handle(file.name)
+    .handle(outputFilename)
     .then((result) => {
       if (result.isLeft()) {
         logger.error('Handler Error', result.value);
@@ -42,7 +49,7 @@ export const storeDataFunction = async (file: IStoreDataInput, context: Context,
         return callback(result.value, { success: false });
       }
       const endDate = new Date();
-      logger.info(`Finished Function in ${(endDate.getTime() - startDate.getTime()) / 1000} for ${file.name}`);
+      logger.info(`Finished Function in ${(endDate.getTime() - startDate.getTime()) / 1000} for ${outputFilename}`);
       callback(null, { success: true });
     })
     .catch((error) => {

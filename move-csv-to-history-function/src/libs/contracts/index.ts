@@ -23,7 +23,5 @@ export interface IBlacklistStatisticItem {
 }
 
 export interface IStatisticReport {
-  isFinished: boolean;
-  isSucceed: boolean;
-  srcFilename: string;
+  isInProgress: boolean;
 }

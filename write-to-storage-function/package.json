@@ -25,9 +25,11 @@
   "dependencies": {
     "@google-cloud/firestore": "4.1.1",
     "@google-cloud/functions-framework": "1.6.0",
+    "@google-cloud/pubsub": "^2.3.0",
     "@google-cloud/storage": "5.1.2",
     "@sweet-monads/either": "2.0.0",
     "byline": "5.0.0",
+    "csv-parser": "2.3.3",
     "lodash": "4.17.19",
     "pino": "5.13.5"
   },

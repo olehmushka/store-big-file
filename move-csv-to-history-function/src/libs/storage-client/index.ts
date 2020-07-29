@@ -6,6 +6,7 @@ export interface IStorageClient {
   createFileReadStream(filename: string): Readable;
   createFileWriteStream(filename: string): Writable;
   deleteFile(filename: string): Promise<Either<Error, void>>;
+  moveFileToBucket(distBucketName: string, filename: string): Promise<Either<Error, void>>;
   renameFile(oldFilename: string, newFilename: string): Promise<Either<Error, void>>;
 }
 
@@ -37,6 +38,19 @@ export class StorageClient implements IStorageClient {
       return right(undefined);
     } catch (error) {
       return left(error);
+    }
+  }
+
+  public async moveFileToBucket(distBucketName: string, filename: string): Promise<Either<Error, void>> {
+    try {
+      await this.instance.bucket(this.bucketName)
+        .file(filename)
+        .copy(this.instance.bucket(distBucketName).file(filename));
+      await this.deleteFile(filename);
+
+      return right(undefined);
+    } catch (error) {
+      return left(error as Error);
     }
   }
 

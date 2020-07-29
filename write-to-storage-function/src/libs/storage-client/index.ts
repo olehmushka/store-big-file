@@ -1,12 +1,12 @@
 import { Storage } from '@google-cloud/storage';
 import { Either, right, left } from '@sweet-monads/either';
 import { Readable, Writable } from 'stream';
-import config from '../../config';
 
 export interface IStorageClient {
   createFileReadStream(filename: string): Readable;
   createFileWriteStream(filename: string): Writable;
   deleteFile(filename: string): Promise<Either<Error, void>>;
+  renameFile(oldFilename: string, newFilename: string): Promise<Either<Error, void>>;
 }
 
 export interface IStorageClientConfig {
@@ -39,4 +39,19 @@ export class StorageClient implements IStorageClient {
       return left(error);
     }
   }
+
+  public async renameFile(oldFilename: string, newFilename: string): Promise<Either<Error, void>> {
+    try {
+      await this.instance.bucket(this.bucketName).file(oldFilename).move(newFilename);
+
+      return right(undefined);
+    } catch (error) {
+      return left(error as Error);
+    }
+  }
 }
+
+export const getStorageClient = (
+  instance: Storage,
+  storageConfig: IStorageClientConfig,
+): IStorageClient => new StorageClient(instance, storageConfig);

@@ -1,9 +1,9 @@
 APP_CREDENTIALS_FILE=~/.config/gcloud/application_default_credentials.json
 PROJECT_ID=store-csv-file
-ENTRY_POINT=writeToStorageFunction
+ENTRY_POINT=moveCsvToHistoryFunction
 TIMEOUT=540
 FUNCTION_MEMORY=2048MB
-TRIGGER_BUCKET_NAME=history-csv-storage-europe-west2
+TRIGGER_BUCKET_NAME=input-csv-storage-europe-west2
 REGION=europe-west2
 
 if [ ! -f "$APP_CREDENTIALS_FILE" ]; then
